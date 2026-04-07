@@ -1,0 +1,3 @@
+customerId,profile.displayName,address.street,address.city,address.region,address.postalCode,contact.email
+c100,Taylor Morgan,400 Broad St,Seattle,WA,98109,taylor@example.com
+c101,Jordan Lee,1 Ferry Building,San Francisco,CA,94111,jordan@example.com

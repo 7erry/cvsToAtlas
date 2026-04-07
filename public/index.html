@@ -1,0 +1,170 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>CSV-to-Atlas Smart Importer</title>
+    <style>
+      :root {
+        font-family: "IBM Plex Sans", system-ui, sans-serif;
+        color: #0f172a;
+        background: #f1f5f9;
+        line-height: 1.5;
+      }
+      body {
+        max-width: 52rem;
+        margin: 0 auto;
+        padding: 2rem 1.25rem 4rem;
+      }
+      h1 {
+        font-size: 1.5rem;
+        font-weight: 600;
+        margin: 0 0 0.5rem;
+      }
+      p.lead {
+        margin: 0 0 1.5rem;
+        color: #475569;
+      }
+      form {
+        background: #fff;
+        border-radius: 12px;
+        padding: 1.25rem 1.5rem;
+        box-shadow: 0 1px 3px rgba(15, 23, 42, 0.08);
+        margin-bottom: 1.5rem;
+      }
+      label {
+        display: block;
+        font-size: 0.875rem;
+        font-weight: 500;
+        margin-bottom: 0.35rem;
+      }
+      input[type="text"],
+      input[type="file"] {
+        width: 100%;
+        margin-bottom: 1rem;
+        padding: 0.5rem 0.6rem;
+        border: 1px solid #cbd5e1;
+        border-radius: 8px;
+        font-size: 1rem;
+        box-sizing: border-box;
+      }
+      .row {
+        display: flex;
+        align-items: center;
+        gap: 0.5rem;
+        margin-bottom: 1rem;
+      }
+      .row input[type="checkbox"] {
+        width: auto;
+      }
+      button {
+        background: #0d9488;
+        color: #fff;
+        border: none;
+        padding: 0.6rem 1.1rem;
+        border-radius: 8px;
+        font-size: 1rem;
+        font-weight: 600;
+        cursor: pointer;
+      }
+      button:disabled {
+        opacity: 0.6;
+        cursor: not-allowed;
+      }
+      button:hover:not(:disabled) {
+        background: #0f766e;
+      }
+      pre {
+        background: #0f172a;
+        color: #e2e8f0;
+        padding: 1rem 1.25rem;
+        border-radius: 12px;
+        overflow: auto;
+        font-size: 0.8125rem;
+        line-height: 1.45;
+        white-space: pre-wrap;
+        word-break: break-word;
+      }
+      .err {
+        color: #b91c1c;
+        background: #fef2f2;
+        padding: 0.75rem 1rem;
+        border-radius: 8px;
+        margin-bottom: 1rem;
+      }
+      .hint {
+        font-size: 0.8125rem;
+        color: #64748b;
+        margin-top: -0.5rem;
+        margin-bottom: 1rem;
+      }
+    </style>
+  </head>
+  <body>
+    <h1>CSV-to-Atlas Smart Importer</h1>
+    <p class="lead">
+      Upload a CSV. Column names with dots become nested documents; numeric segments (e.g.
+      <code>lineItems.0.qty</code>) build arrays. Values that look like JSON or numbers are coerced.
+      Trailing <code>[]</code> on a header stores one JSON array in that field.
+    </p>
+
+    <form id="form">
+      <label for="file">CSV file</label>
+      <input id="file" name="file" type="file" accept=".csv,text/csv" required />
+
+      <label for="collectionName">Atlas collection name</label>
+      <input
+        id="collectionName"
+        name="collectionName"
+        type="text"
+        placeholder="e.g. orders_2026"
+        required
+        pattern="[a-zA-Z_][a-zA-Z0-9_]{0,119}"
+        title="Letter or underscore, then letters, numbers, underscores"
+      />
+      <p class="hint">Database is taken from <code>MONGODB_DB</code> (default <code>csv_to_atlas</code>).</p>
+
+      <div class="row">
+        <input id="dropExisting" name="dropExisting" type="checkbox" value="true" />
+        <label for="dropExisting" style="margin: 0">Replace collection if it already exists</label>
+      </div>
+
+      <button type="submit" id="submit">Import &amp; create indexes</button>
+    </form>
+
+    <div id="error" class="err" hidden></div>
+    <pre id="out" hidden></pre>
+
+    <script>
+      const form = document.getElementById("form");
+      const out = document.getElementById("out");
+      const err = document.getElementById("error");
+      const submit = document.getElementById("submit");
+
+      form.addEventListener("submit", async (e) => {
+        e.preventDefault();
+        err.hidden = true;
+        out.hidden = true;
+        submit.disabled = true;
+
+        const fd = new FormData(form);
+        try {
+          const res = await fetch("/api/import", { method: "POST", body: fd });
+          const data = await res.json();
+          if (!res.ok) {
+            err.textContent = data.error || res.statusText;
+            err.hidden = false;
+            return;
+          }
+          out.textContent = JSON.stringify(data, null, 2);
+          out.hidden = false;
+        } catch (x) {
+          err.textContent = String(x);
+          err.hidden = false;
+        } finally {
+          submit.disabled = false;
+        }
+      });
+    </script>
+  </body>
+</html>

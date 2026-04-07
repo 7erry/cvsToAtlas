@@ -1,0 +1,4 @@
+userId,name,email,active,score
+u1,Ada Lovelace,ada@example.com,true,99.5
+u2,Alan Turing,alan@example.com,false,88
+u3,Grace Hopper,grace@example.com,true,92.25

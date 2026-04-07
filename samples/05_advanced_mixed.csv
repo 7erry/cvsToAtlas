@@ -1,0 +1,4 @@
+tenantId,eventId,payload.user.id,payload.user.handle,payload.metrics[],meta
+t-alpha,evt-001,u42,@dev1,"[12.5,3,8.1]","{""source"":""mobile"",""version"":""2.1.0""}"
+t-alpha,evt-002,u77,@dev2,"[1,1,2,3]","{""source"":""web"",""version"":""2.0.9""}"
+t-beta,evt-003,u42,@dev1,"[9.9]","{""source"":""api"",""version"":""1.4.0""}"

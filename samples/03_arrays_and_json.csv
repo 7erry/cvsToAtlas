@@ -1,0 +1,3 @@
+sku,title,tags[],specs.weightKg,specs.dimsJson,notes
+WIDGET-01,Noise-reducing widget,"[""hardware"",""audio""]",0.42,"{""w"":0.4,""h"":2.1}",First shipment
+WIDGET-02,USB-C hub,"[""usb"",""office""]",0.12,"{""w"":0.12,""h"":0.8}",Popular SKU
