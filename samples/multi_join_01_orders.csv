@@ -1,0 +1,4 @@
+orderId,status,totals.subtotal
+ORD-100,open,49.99
+ORD-101,paid,120.00
+ORD-102,shipped,15.50

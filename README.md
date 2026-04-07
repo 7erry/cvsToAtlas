@@ -16,6 +16,18 @@ npm run import-cli -- samples/01_simple_flat.csv my_collection --drop
 
 `--drop` replaces an existing collection with the same name.
 
+### Multiple related CSVs (merge into one collection)
+
+Use one **join field** (dotted path allowed) so rows with the same value are merged into a single document with `deepMerge`:
+
+```bash
+npm run import-cli -- samples/multi_join_01_orders.csv samples/multi_join_02_payments.csv merged_orders --join orderId --drop
+```
+
+With a single `--join`, you can also **deduplicate** rows inside one CSV that share the same key.
+
+**Web UI:** choose multiple CSV files, set **Join field**, then import.
+
 ## Column naming
 
 - **Dots** nest fields: `address.city` → `{ "address": { "city": "..." } }`.
@@ -32,6 +44,9 @@ npm run import-cli -- samples/01_simple_flat.csv my_collection --drop
 | `samples/03_arrays_and_json.csv` | `tags[]`, nested `specs`, JSON in cells |
 | `samples/04_line_item_rows.csv` | Array rows via `lineItems.0.*` |
 | `samples/05_advanced_mixed.csv` | Nested `payload`, `payload.metrics[]`, `meta` JSON |
+| `samples/multi_join_01_orders.csv` + `multi_join_02_payments.csv` | Same `orderId` — merge with `--join orderId` |
+
+**Merge behavior:** rows from every CSV that share the same join value (after CSV parsing) are combined into one document. Nested objects merge; arrays are aligned by index. Rows missing the join field are skipped (see `merge` stats in the JSON response).
 
 ## Security
 

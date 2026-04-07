@@ -103,14 +103,29 @@
   <body>
     <h1>CSV-to-Atlas Smart Importer</h1>
     <p class="lead">
-      Upload a CSV. Column names with dots become nested documents; numeric segments (e.g.
+      Upload one or more CSVs. Column names with dots become nested documents; numeric segments (e.g.
       <code>lineItems.0.qty</code>) build arrays. Values that look like JSON or numbers are coerced.
-      Trailing <code>[]</code> on a header stores one JSON array in that field.
+      Trailing <code>[]</code> on a header stores one JSON array in that field. With
+      <strong>multiple files</strong>, set a <strong>join field</strong> so rows sharing that value merge
+      into one document (e.g. <code>orderId</code> or <code>customer.id</code>).
     </p>
 
     <form id="form">
-      <label for="file">CSV file</label>
-      <input id="file" name="file" type="file" accept=".csv,text/csv" required />
+      <label for="files">CSV file(s)</label>
+      <input id="files" name="files" type="file" accept=".csv,text/csv" multiple required />
+
+      <label for="joinField">Join field (required if multiple files)</label>
+      <input
+        id="joinField"
+        name="joinField"
+        type="text"
+        placeholder="e.g. orderId or customer.id — leave empty for a single file"
+        autocomplete="off"
+      />
+      <p class="hint">
+        Same join value across files is merged with <code>deepMerge</code>. Optional for one file (also
+        deduplicates duplicate keys in that file).
+      </p>
 
       <label for="collectionName">Atlas collection name</label>
       <input

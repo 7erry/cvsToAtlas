@@ -1,0 +1,4 @@
+orderId,payment.method,payment.last4,payment.paidAt
+ORD-100,card,4242,2026-01-10
+ORD-101,ach,,2026-01-11
+ORD-102,paypal,,2026-01-12
