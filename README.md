@@ -8,6 +8,8 @@ Upload a CSV (or use the CLI) to infer nested documents and arrays from column n
 2. `npm install`
 3. `npm run dev` — open [http://localhost:3333](http://localhost:3333) and upload a CSV.
 
+![Project Screenshot](imag/screenshot.jpg)
+
 ## CLI
 
 ```bash
