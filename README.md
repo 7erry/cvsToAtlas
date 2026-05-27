@@ -18,6 +18,22 @@ npm run import-cli -- samples/01_simple_flat.csv my_collection --drop
 
 `--drop` replaces an existing collection with the same name.
 
+You can also inspect files without connecting to MongoDB:
+
+```bash
+npm run import-cli -- samples/common_customer_01_customers.csv samples/common_customer_02_orders.csv samples/common_customer_03_support.csv --analyze
+```
+
+`--analyze` returns the parsed file headers, row counts, ranked common fields, a suggested join field, and a suggested collection name. It is useful before importing multiple related CSVs because it does not require `MONGODB_URI`.
+
+When the collection name or join field is omitted, the importer suggests them from the CSV headers and file names:
+
+```bash
+npm run import-cli -- samples/common_customer_01_customers.csv samples/common_customer_02_orders.csv samples/common_customer_03_support.csv --drop
+```
+
+The example above detects `customerId` as the common join field and suggests `customers_orders_support` as the collection name.
+
 ### Multiple related CSVs (merge into one collection)
 
 Use one **join field** (dotted path allowed) so rows with the same value are merged into a single document with `deepMerge`:
@@ -28,7 +44,11 @@ npm run import-cli -- samples/multi_join_01_orders.csv samples/multi_join_02_pay
 
 With a single `--join`, you can also **deduplicate** rows inside one CSV that share the same key.
 
-**Web UI:** choose multiple CSV files, set **Join field**, then import.
+### Web UI analysis
+
+Choose one or more CSV files in the web UI. The page calls `/api/analyze`, fills in the suggested **Join field** and **Atlas collection name**, and shows the top common-field candidates before import. You can keep the suggestions or override either value before clicking **Import & create indexes**.
+
+The `/api/import` endpoint also runs the same analysis server-side. If multiple files are uploaded without a join field, it uses the best suggested common field or returns the analysis payload so you can choose a field manually.
 
 ## Column naming
 
@@ -47,6 +67,7 @@ With a single `--join`, you can also **deduplicate** rows inside one CSV that sh
 | `samples/04_line_item_rows.csv` | Array rows via `lineItems.0.*` |
 | `samples/05_advanced_mixed.csv` | Nested `payload`, `payload.metrics[]`, `meta` JSON |
 | `samples/multi_join_01_orders.csv` + `multi_join_02_payments.csv` | Same `orderId` — merge with `--join orderId` |
+| `samples/common_customer_01_customers.csv` + `common_customer_02_orders.csv` + `common_customer_03_support.csv` | Same `customerId` — analyze or import using suggested join and collection names |
 
 **Merge behavior:** rows from every CSV that share the same join value (after CSV parsing) are combined into one document. Nested objects merge; arrays are aligned by index. Rows missing the join field are skipped (see `merge` stats in the JSON response).
 

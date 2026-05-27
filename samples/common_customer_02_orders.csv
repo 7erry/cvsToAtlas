@@ -1,0 +1,4 @@
+customerId,order.id,order.status,order.total
+CUST-001,ORD-9001,paid,149.95
+CUST-002,ORD-9002,open,89.5
+CUST-003,ORD-9003,shipped,219

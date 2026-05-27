@@ -98,6 +98,20 @@
         margin-top: -0.5rem;
         margin-bottom: 1rem;
       }
+      .suggestion {
+        background: #ecfeff;
+        border: 1px solid #99f6e4;
+        border-radius: 10px;
+        color: #134e4a;
+        font-size: 0.875rem;
+        margin: -0.25rem 0 1rem;
+        padding: 0.75rem 1rem;
+      }
+      .suggestion code {
+        background: rgba(15, 118, 110, 0.1);
+        border-radius: 4px;
+        padding: 0.1rem 0.25rem;
+      }
     </style>
   </head>
   <body>
@@ -113,6 +127,7 @@
     <form id="form">
       <label for="files">CSV file(s)</label>
       <input id="files" name="files" type="file" accept=".csv,text/csv" multiple required />
+      <div id="analysis" class="suggestion" hidden></div>
 
       <label for="joinField">Join field (required if multiple files)</label>
       <input
@@ -132,8 +147,7 @@
         id="collectionName"
         name="collectionName"
         type="text"
-        placeholder="e.g. orders_2026"
-        required
+        placeholder="e.g. orders_2026 — leave empty to use the suggestion"
         pattern="[a-zA-Z_][a-zA-Z0-9_]{0,119}"
         title="Letter or underscore, then letters, numbers, underscores"
       />
@@ -155,6 +169,61 @@
       const out = document.getElementById("out");
       const err = document.getElementById("error");
       const submit = document.getElementById("submit");
+      const files = document.getElementById("files");
+      const joinField = document.getElementById("joinField");
+      const collectionName = document.getElementById("collectionName");
+      const analysis = document.getElementById("analysis");
+
+      function escapeHtml(value) {
+        return String(value)
+          .replaceAll("&", "&amp;")
+          .replaceAll("<", "&lt;")
+          .replaceAll(">", "&gt;")
+          .replaceAll('"', "&quot;");
+      }
+
+      function showAnalysis(data) {
+        const commonFields = data.commonFields || [];
+        const fieldList = commonFields
+          .slice(0, 3)
+          .map((field) => `<code>${escapeHtml(field.field)}</code>`)
+          .join(", ");
+
+        analysis.innerHTML = [
+          `Suggested collection: <code>${escapeHtml(data.suggestedCollectionName)}</code>`,
+          data.suggestedJoinField
+            ? `Suggested join field: <code>${escapeHtml(data.suggestedJoinField)}</code>`
+            : "No shared join field found yet.",
+          fieldList ? `Other common fields: ${fieldList}` : "",
+        ]
+          .filter(Boolean)
+          .join("<br />");
+        analysis.hidden = false;
+      }
+
+      files.addEventListener("change", async () => {
+        analysis.hidden = true;
+        err.hidden = true;
+        if (files.files.length === 0) return;
+
+        const fd = new FormData();
+        for (const file of files.files) fd.append("files", file);
+
+        try {
+          const res = await fetch("/api/analyze", { method: "POST", body: fd });
+          const data = await res.json();
+          if (!res.ok) throw new Error(data.error || res.statusText);
+
+          if (!joinField.value && data.suggestedJoinField) joinField.value = data.suggestedJoinField;
+          if (!collectionName.value && data.suggestedCollectionName) {
+            collectionName.value = data.suggestedCollectionName;
+          }
+          showAnalysis(data);
+        } catch (x) {
+          err.textContent = String(x);
+          err.hidden = false;
+        }
+      });
 
       form.addEventListener("submit", async (e) => {
         e.preventDefault();

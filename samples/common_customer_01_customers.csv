@@ -1,0 +1,4 @@
+customerId,customer.name,customer.email,customer.segment
+CUST-001,Ada Lovelace,ada@example.com,enterprise
+CUST-002,Grace Hopper,grace@example.com,public-sector
+CUST-003,Katherine Johnson,katherine@example.com,education

@@ -4,6 +4,7 @@ import multer from 'multer';
 import path from 'path';
 import { fileURLToPath } from 'url';
 import { MongoClient } from 'mongodb';
+import { analyzeCsvFiles, type CsvFileProfile } from './lib/analyzeCsvFiles.js';
 import { mergeBatchesByJoinKey, type MergeByJoinStats } from './lib/mergeByJoinKey.js';
 import { parseCsvBuffer } from './lib/parseCsv.js';
 import { runImport } from './mongo/runImport.js';
@@ -21,6 +22,18 @@ function uploadedCsvFiles(req: Request): Express.Multer.File[] {
   return [...(raw?.file ?? []), ...(raw?.files ?? [])];
 }
 
+function profileUploadedFiles(files: Express.Multer.File[]): CsvFileProfile[] {
+  return files.map((file) => {
+    const parsed = parseCsvBuffer(file.buffer);
+    return {
+      fileName: file.originalname,
+      headers: parsed.headers,
+      rowCount: parsed.documents.length,
+      documents: parsed.documents,
+    };
+  });
+}
+
 const PORT = Number(process.env.PORT) || 3333;
 const MONGODB_URI = process.env.MONGODB_URI;
 const MONGODB_DB = process.env.MONGODB_DB || 'csv_to_atlas';
@@ -31,6 +44,29 @@ app.use(express.static(path.join(__dirname, '../public')));
 app.get('/api/health', (_req, res) => {
   res.json({ ok: true, db: MONGODB_DB });
 });
+
+app.post(
+  '/api/analyze',
+  upload.fields([
+    { name: 'file', maxCount: 1 },
+    { name: 'files', maxCount: 30 },
+  ]),
+  (req, res) => {
+    const files = uploadedCsvFiles(req);
+
+    if (files.length === 0) {
+      res.status(400).json({ error: 'Add at least one CSV (field name "files" or legacy "file")' });
+      return;
+    }
+
+    try {
+      res.json(analyzeCsvFiles(profileUploadedFiles(files)));
+    } catch (e) {
+      const message = e instanceof Error ? e.message : String(e);
+      res.status(500).json({ error: message });
+    }
+  },
+);
 
 app.post(
   '/api/import',
@@ -45,28 +81,34 @@ app.post(
     }
 
     const files = uploadedCsvFiles(req);
-    const collectionName = String(req.body.collectionName || '').trim();
+    let collectionName = String(req.body.collectionName || '').trim();
     const dropExisting = String(req.body.dropExisting || '') === 'true';
-    const joinField = String(req.body.joinField || '').trim();
+    let joinField = String(req.body.joinField || '').trim();
 
     if (files.length === 0) {
       res.status(400).json({ error: 'Add at least one CSV (field name "files" or legacy "file")' });
       return;
     }
-    if (files.length > 1 && !joinField) {
-      res.status(400).json({
-        error:
-          'joinField is required when uploading multiple CSV files (dotted path, e.g. orderId or customer.id)',
-      });
-      return;
-    }
-    if (!collectionName) {
-      res.status(400).json({ error: 'Missing collectionName' });
-      return;
-    }
-
     try {
-      const batches = files.map((f) => parseCsvBuffer(f.buffer).documents);
+      const profiles = profileUploadedFiles(files);
+      const analysis = analyzeCsvFiles(profiles);
+      joinField ||= analysis.suggestedJoinField ?? '';
+      collectionName ||= analysis.suggestedCollectionName;
+
+      if (files.length > 1 && !joinField) {
+        res.status(400).json({
+          error:
+            'No common join field was found. Set joinField manually (dotted path, e.g. orderId or customer.id).',
+          analysis,
+        });
+        return;
+      }
+      if (!collectionName) {
+        res.status(400).json({ error: 'Missing collectionName', analysis });
+        return;
+      }
+
+      const batches = profiles.map((profile) => profile.documents);
       let documents: Record<string, unknown>[];
       let merge: MergeByJoinStats | undefined;
       if (joinField) {
@@ -82,7 +124,7 @@ app.post(
       try {
         const db = client.db(MONGODB_DB);
         const result = await runImport(db, collectionName, documents, { dropExisting });
-        res.json(merge ? { ...result, merge } : result);
+        res.json(merge ? { ...result, merge, analysis } : { ...result, analysis });
       } finally {
         await client.close();
       }

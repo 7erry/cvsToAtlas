@@ -1,0 +1,4 @@
+customerId,support.ticketId,support.priority,support.openedAt
+CUST-001,TCK-1001,high,2026-02-01
+CUST-002,TCK-1002,medium,2026-02-03
+CUST-003,TCK-1003,low,2026-02-05
