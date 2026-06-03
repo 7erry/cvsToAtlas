@@ -314,6 +314,33 @@
         color: var(--mongodb-black);
         font-size: 0.95rem;
       }
+      .embed-options {
+        display: grid;
+        gap: 0.45rem;
+        margin-top: 0.75rem;
+      }
+      .embed-option {
+        align-items: flex-start;
+        background: rgba(255, 255, 255, 0.72);
+        border: 1px solid rgba(0, 104, 74, 0.16);
+        border-radius: 12px;
+        display: flex;
+        gap: 0.55rem;
+        padding: 0.65rem 0.75rem;
+      }
+      .embed-option input {
+        margin-top: 0.2rem;
+      }
+      .embed-option label {
+        margin-bottom: 0;
+      }
+      .embed-option span {
+        color: var(--text-muted);
+        display: block;
+        font-size: 0.78rem;
+        font-weight: 500;
+        margin-top: 0.1rem;
+      }
       .result-wrap {
         grid-column: 2;
       }
@@ -443,6 +470,12 @@
         for (const file of selectedCsvFiles()) fd.append("files", file);
       }
 
+      function selectedEmbeddedFiles() {
+        return [
+          ...document.querySelectorAll('input[name="embeddedFiles"]:checked'),
+        ].map((input) => input.value);
+      }
+
       function addCsvFileInput() {
         const row = document.createElement("div");
         row.className = "file-input-row";
@@ -461,8 +494,37 @@
           .replaceAll('"', "&quot;");
       }
 
+      function suggestedEmbeddedFieldName(fileName) {
+        const genericTokens = new Set([
+          "common",
+          "csv",
+          "data",
+          "file",
+          "files",
+          "join",
+          "multi",
+          "row",
+          "rows",
+          "sample",
+          "samples",
+          "table",
+          "tables",
+        ]);
+        const tokens = String(fileName)
+          .replace(/^.*[/\\]/, "")
+          .replace(/\.[^.]+$/, "")
+          .toLowerCase()
+          .replace(/[^a-z0-9]+/g, "_")
+          .split("_")
+          .filter((token) => token && !/^\d+$/.test(token) && !genericTokens.has(token));
+        const meaningful = tokens.length > 1 ? tokens.slice(1) : tokens;
+        const fieldName = meaningful.join("_") || "embeddedRows";
+        return /^[a-z_]/.test(fieldName) ? fieldName : `embedded_${fieldName}`;
+      }
+
       function showAnalysis(data) {
         const commonFields = data.commonFields || [];
+        const embeddedSelections = new Set(selectedEmbeddedFiles());
         const fieldList = commonFields
           .slice(0, 3)
           .map((field) => `<code>${escapeHtml(field.field)}</code>`)
@@ -492,6 +554,29 @@
                 "</div>",
               ].join("")
             : "";
+        const embedOptions =
+          (data.files || []).length > 1
+            ? [
+                '<div class="embed-options">',
+                '<label>One-to-many embedding</label>',
+                '<p class="hint" style="margin: 0 0 0.25rem">Select CSVs whose rows should be embedded as child arrays on matching parent documents.</p>',
+                (data.files || [])
+                  .map((file, index) => {
+                    const id = `embeddedFile_${index}`;
+                    const checked = embeddedSelections.has(file.fileName) ? " checked" : "";
+                    return [
+                      '<div class="embed-option">',
+                      `<input id="${id}" name="embeddedFiles" type="checkbox" value="${escapeHtml(file.fileName)}"${checked} />`,
+                      `<label for="${id}">Embed <code>${escapeHtml(file.fileName)}</code><span>Default array field: ${escapeHtml(
+                        suggestedEmbeddedFieldName(file.fileName),
+                      )}</span></label>`,
+                      "</div>",
+                    ].join("");
+                  })
+                  .join(""),
+                "</div>",
+              ].join("")
+            : "";
         const fileHeaders = (data.files || [])
           .map(
             (file) => [
@@ -517,6 +602,7 @@
             : "No shared join field found yet.",
           fieldList ? `Other common fields: ${fieldList}` : "",
           joinPicker,
+          embedOptions,
           fileHeaders ? `<div class="analysis-grid">${fileHeaders}</div>` : "",
         ]
           .filter(Boolean)

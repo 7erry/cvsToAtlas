@@ -3,7 +3,11 @@ import { readFileSync } from 'fs';
 import path from 'path';
 import { MongoClient } from 'mongodb';
 import { analyzeCsvFiles, type CsvFileProfile } from './lib/analyzeCsvFiles.js';
-import { mergeBatchesByJoinKey, type MergeByJoinStats } from './lib/mergeByJoinKey.js';
+import {
+  mergeProfilesByJoinKey,
+  type EmbeddedCsvSpec,
+  type MergeByJoinStats,
+} from './lib/mergeByJoinKey.js';
 import { parseCsvBuffer } from './lib/parseCsv.js';
 import { runImport } from './mongo/runImport.js';
 
@@ -14,12 +18,14 @@ function parseArgs(argv: string[]): {
   csvPaths: string[];
   collectionName: string | undefined;
   joinField: string | undefined;
+  embeddedCsvs: EmbeddedCsvSpec[];
   analyzeOnly: boolean;
   drop: boolean;
 } {
   let joinField: string | undefined;
   let analyzeOnly = false;
   let drop = false;
+  const embeddedCsvs: EmbeddedCsvSpec[] = [];
   const positional: string[] = [];
 
   for (let i = 0; i < argv.length; i++) {
@@ -39,6 +45,19 @@ function parseArgs(argv: string[]): {
       }
       continue;
     }
+    if (a === '--embed' || a === '-e') {
+      const spec = argv[++i];
+      if (!spec) {
+        throw new Error('Missing value after --embed');
+      }
+      const separator = spec.lastIndexOf(':');
+      embeddedCsvs.push(
+        separator > 0
+          ? { fileName: spec.slice(0, separator), fieldName: spec.slice(separator + 1) }
+          : { fileName: spec },
+      );
+      continue;
+    }
     if (a.startsWith('-')) {
       throw new Error(`Unknown option: ${a}`);
     }
@@ -47,7 +66,7 @@ function parseArgs(argv: string[]): {
 
   if (positional.length < 1) {
     throw new Error(
-      'Usage: npm run import-cli -- <file.csv> [more.csv ...] [collectionName] [--join <field>] [--drop] [--analyze]',
+      'Usage: npm run import-cli -- <file.csv> [more.csv ...] [collectionName] [--join <field>] [--embed <file.csv[:arrayField]>] [--drop] [--analyze]',
     );
   }
 
@@ -64,6 +83,7 @@ function parseArgs(argv: string[]): {
     csvPaths,
     collectionName,
     joinField: joinField?.trim() || undefined,
+    embeddedCsvs,
     analyzeOnly,
     drop,
   };
@@ -83,6 +103,7 @@ async function main(): Promise<void> {
   let csvPaths: string[];
   let collectionName: string | undefined;
   let joinField: string | undefined;
+  let embeddedCsvs: EmbeddedCsvSpec[];
   let analyzeOnly: boolean;
   let drop: boolean;
 
@@ -91,6 +112,7 @@ async function main(): Promise<void> {
     csvPaths = parsed.csvPaths;
     collectionName = parsed.collectionName;
     joinField = parsed.joinField;
+    embeddedCsvs = parsed.embeddedCsvs;
     analyzeOnly = parsed.analyzeOnly;
     drop = parsed.drop;
   } catch (e) {
@@ -125,12 +147,26 @@ async function main(): Promise<void> {
 
   console.error(`Using collection "${collectionName}"`);
   if (joinField) console.error(`Using join field "${joinField}"`);
+  for (const embedded of embeddedCsvs) {
+    console.error(
+      `Embedding rows from "${path.basename(embedded.fileName)}"${
+        embedded.fieldName ? ` into "${embedded.fieldName}"` : ''
+      }`,
+    );
+  }
 
   const batches = profiles.map((profile) => profile.documents);
   let documents: Record<string, unknown>[];
   let mergeStats: MergeByJoinStats | undefined;
   if (joinField) {
-    const merged = mergeBatchesByJoinKey(batches, joinField);
+    const merged = mergeProfilesByJoinKey(
+      profiles.map((profile) => ({
+        fileName: profile.fileName,
+        documents: profile.documents,
+      })),
+      joinField,
+      embeddedCsvs,
+    );
     documents = merged.documents;
     mergeStats = merged.stats;
     console.error(

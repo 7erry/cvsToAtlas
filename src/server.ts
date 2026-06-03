@@ -5,7 +5,11 @@ import path from 'path';
 import { fileURLToPath } from 'url';
 import { MongoClient } from 'mongodb';
 import { analyzeCsvFiles, type CsvFileProfile } from './lib/analyzeCsvFiles.js';
-import { mergeBatchesByJoinKey, type MergeByJoinStats } from './lib/mergeByJoinKey.js';
+import {
+  mergeProfilesByJoinKey,
+  type EmbeddedCsvSpec,
+  type MergeByJoinStats,
+} from './lib/mergeByJoinKey.js';
 import { parseCsvBuffer } from './lib/parseCsv.js';
 import { runImport } from './mongo/runImport.js';
 
@@ -32,6 +36,21 @@ function profileUploadedFiles(files: Express.Multer.File[]): CsvFileProfile[] {
       documents: parsed.documents,
     };
   });
+}
+
+function parseEmbeddedCsvSpecs(raw: unknown): EmbeddedCsvSpec[] {
+  const values = Array.isArray(raw) ? raw : raw ? [raw] : [];
+  return values
+    .map((value) => String(value).trim())
+    .filter(Boolean)
+    .map((value) => {
+      const separator = value.lastIndexOf(':');
+      if (separator <= 0) return { fileName: value };
+      return {
+        fileName: value.slice(0, separator),
+        fieldName: value.slice(separator + 1),
+      };
+    });
 }
 
 const PORT = Number(process.env.PORT) || 3333;
@@ -84,6 +103,7 @@ app.post(
     let collectionName = String(req.body.collectionName || '').trim();
     const dropExisting = String(req.body.dropExisting || '') === 'true';
     let joinField = String(req.body.joinField || '').trim();
+    const embeddedCsvs = parseEmbeddedCsvSpecs(req.body.embeddedFiles);
 
     if (files.length === 0) {
       res.status(400).json({ error: 'Add at least one CSV (field name "files" or legacy "file")' });
@@ -112,7 +132,14 @@ app.post(
       let documents: Record<string, unknown>[];
       let merge: MergeByJoinStats | undefined;
       if (joinField) {
-        const merged = mergeBatchesByJoinKey(batches, joinField);
+        const merged = mergeProfilesByJoinKey(
+          profiles.map((profile) => ({
+            fileName: profile.fileName,
+            documents: profile.documents,
+          })),
+          joinField,
+          embeddedCsvs,
+        );
         documents = merged.documents;
         merge = merged.stats;
       } else {

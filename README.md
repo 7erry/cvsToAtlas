@@ -44,9 +44,19 @@ npm run import-cli -- samples/multi_join_01_orders.csv samples/multi_join_02_pay
 
 With a single `--join`, you can also **deduplicate** rows inside one CSV that share the same key.
 
+For one-to-many relationships, choose which CSV should be embedded as child rows on the parent document. The embedded CSV becomes an array field inferred from the file name, or you can set the array field with `:fieldName`:
+
+```bash
+npm run import-cli -- samples/multi_join_01_orders.csv samples/multi_join_02_payments.csv merged_orders --join orderId --embed multi_join_02_payments.csv:payments --drop
+```
+
+Rows from the embedded CSV that share the same join value are appended to the parent document. Rows missing the join field or without a matching parent are reported in the merge stats.
+
 ### Web UI analysis
 
 Choose one or more CSV files in the web UI. The page calls `/api/analyze`, fills in the suggested **Join field** and **Atlas collection name**, and shows the top common-field candidates before import. You can keep the suggestions or override either value before clicking **Import & create indexes**.
+
+When importing related CSVs, use **One-to-many embedding** to select any CSV whose rows should be stored as an embedded child array on the matching parent document.
 
 The `/api/import` endpoint also runs the same analysis server-side. If multiple files are uploaded without a join field, it uses the best suggested common field or returns the analysis payload so you can choose a field manually.
 
@@ -59,17 +69,22 @@ The `/api/import` endpoint also runs the same analysis server-side. If multiple 
 
 ## Sample files
 
+The `samples/` directory contains larger deterministic CSV fixtures so analysis, merge, embedding, and index recommendations can be exercised with hundreds or thousands of rows instead of toy data.
+
 | File | What it exercises |
 |------|-------------------|
-| `samples/01_simple_flat.csv` | Flat rows |
-| `samples/02_nested_address.csv` | Nested `address` and `profile` |
-| `samples/03_arrays_and_json.csv` | `tags[]`, nested `specs`, JSON in cells |
-| `samples/04_line_item_rows.csv` | Array rows via `lineItems.0.*` |
-| `samples/05_advanced_mixed.csv` | Nested `payload`, `payload.metrics[]`, `meta` JSON |
-| `samples/multi_join_01_orders.csv` + `multi_join_02_payments.csv` | Same `orderId` — merge with `--join orderId` |
-| `samples/common_customer_01_customers.csv` + `common_customer_02_orders.csv` + `common_customer_03_support.csv` | Same `customerId` — analyze or import using suggested join and collection names |
+| `samples/01_simple_flat.csv` | 250 flat user-style rows |
+| `samples/02_nested_address.csv` | 250 nested `address` and `profile` rows |
+| `samples/03_arrays_and_json.csv` | 250 rows with `tags[]`, nested `specs`, and JSON cells |
+| `samples/04_line_item_rows.csv` | 250 order rows with arrays via `lineItems.0.*` |
+| `samples/05_advanced_mixed.csv` | 250 nested event rows with `payload`, `payload.metrics[]`, and `meta` JSON |
+| `samples/multi_join_01_orders.csv` + `multi_join_02_payments.csv` | 250 matching `orderId` rows — merge or embed payments with `--join orderId` |
+| `samples/common_customer_01_customers.csv` + `common_customer_02_orders.csv` + `common_customer_03_support.csv` | 250 matching `customerId` rows — analyze or import using suggested join and collection names |
+| `samples/user_table.csv` + `friends_table.csv` + `posts_table.csv` + `reactions_table.csv` | Larger social-graph-style tables for high-volume relationship testing |
 
 **Merge behavior:** rows from every CSV that share the same join value (after CSV parsing) are combined into one document. Nested objects merge; arrays are aligned by index. Rows missing the join field are skipped (see `merge` stats in the JSON response).
+
+**Embed behavior:** selected child CSVs are not merged into the parent shape directly. Instead, each matching child row is appended to an inferred or explicit array field on the parent document, preserving one-to-many relationships.
 
 ## Security
 
