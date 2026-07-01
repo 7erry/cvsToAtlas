@@ -47,16 +47,18 @@ With a single `--join`, you can also **deduplicate** rows inside one CSV that sh
 For one-to-many relationships, choose which CSV should be embedded as child rows on the parent document. The embedded CSV becomes an array field inferred from the file name, or you can set the array field with `:fieldName`:
 
 ```bash
-npm run import-cli -- samples/multi_join_01_orders.csv samples/multi_join_02_payments.csv merged_orders --join orderId --embed multi_join_02_payments.csv:payments --drop
+npm run import-cli -- samples/multi_join_01_orders.csv samples/multi_join_02_payments.csv merged_orders --join orderId --parent multi_join_01_orders.csv --embed multi_join_02_payments.csv:payments --drop
 ```
 
 Rows from the embedded CSV that share the same join value are appended to the parent document. Rows missing the join field or without a matching parent are reported in the merge stats.
+
+Use repeated `--embed` flags to embed multiple child CSVs. The parent CSV cannot also be selected as embedded.
 
 ### Web UI analysis
 
 Choose one or more CSV files in the web UI. The page calls `/api/analyze`, fills in the suggested **Join field** and **Atlas collection name**, and shows the top common-field candidates before import. You can keep the suggestions or override either value before clicking **Import & create indexes**.
 
-When importing related CSVs, use **One-to-many embedding** to select any CSV whose rows should be stored as an embedded child array on the matching parent document.
+When importing related CSVs, use **One-to-many embedding** to choose the **Parent CSV** and select any other CSV whose rows should be stored as an embedded child array on the matching parent document.
 
 The `/api/import` endpoint also runs the same analysis server-side. If multiple files are uploaded without a join field, it uses the best suggested common field or returns the analysis payload so you can choose a field manually.
 

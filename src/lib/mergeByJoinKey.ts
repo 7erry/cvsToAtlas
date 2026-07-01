@@ -118,6 +118,10 @@ export type EmbeddedCsvSpec = {
   fieldName?: string;
 };
 
+export type MergeProfilesByJoinOptions = {
+  parentFileName?: string;
+};
+
 /**
  * Merges several CSV-derived document lists into one list: rows sharing the same join
  * field value are combined with deepMerge (nested objects and arrays align by index).
@@ -170,6 +174,7 @@ export function mergeProfilesByJoinKey(
   profiles: CsvMergeProfile[],
   joinField: string,
   embeddedCsvs: EmbeddedCsvSpec[] = [],
+  options: MergeProfilesByJoinOptions = {},
 ): { documents: Record<string, unknown>[]; stats: MergeByJoinStats } {
   const field = joinField.trim();
   if (!field) {
@@ -192,6 +197,13 @@ export function mergeProfilesByJoinKey(
       },
     ]),
   );
+  const parentFileName = options.parentFileName?.replace(/^.*[/\\]/, '').trim();
+  if (parentFileName && embeddedByName.has(parentFileName)) {
+    throw new Error('The parent CSV cannot also be selected as an embedded CSV');
+  }
+  if (parentFileName && !profiles.some((profile) => profile.fileName === parentFileName)) {
+    throw new Error(`Parent CSV "${parentFileName}" was not found in the uploaded files`);
+  }
   const parentProfiles = profiles.filter((profile) => !embeddedByName.has(profile.fileName));
   const childProfiles = profiles.filter((profile) => embeddedByName.has(profile.fileName));
 

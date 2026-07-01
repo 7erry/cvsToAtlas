@@ -104,6 +104,7 @@ app.post(
     const dropExisting = String(req.body.dropExisting || '') === 'true';
     let joinField = String(req.body.joinField || '').trim();
     const embeddedCsvs = parseEmbeddedCsvSpecs(req.body.embeddedFiles);
+    const parentFileName = String(req.body.parentFile || '').trim() || undefined;
 
     if (files.length === 0) {
       res.status(400).json({ error: 'Add at least one CSV (field name "files" or legacy "file")' });
@@ -139,6 +140,7 @@ app.post(
           })),
           joinField,
           embeddedCsvs,
+          { parentFileName },
         );
         documents = merged.documents;
         merge = merged.stats;

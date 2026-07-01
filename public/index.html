@@ -456,6 +456,7 @@
       const collectionName = document.getElementById("collectionName");
       const analysis = document.getElementById("analysis");
       let lastSuggestedJoinField = "";
+      let lastAnalysis = null;
 
       function csvFileInputs() {
         return [...document.querySelectorAll(".csv-file-input")];
@@ -474,6 +475,11 @@
         return [
           ...document.querySelectorAll('input[name="embeddedFiles"]:checked'),
         ].map((input) => input.value);
+      }
+
+      function selectedParentFile() {
+        const picker = document.getElementById("parentFilePicker");
+        return picker?.value || "";
       }
 
       function addCsvFileInput() {
@@ -523,8 +529,11 @@
       }
 
       function showAnalysis(data) {
+        lastAnalysis = data;
         const commonFields = data.commonFields || [];
         const embeddedSelections = new Set(selectedEmbeddedFiles());
+        const defaultParentFile = data.files?.[0]?.fileName || "";
+        const parentFile = selectedParentFile() || defaultParentFile;
         const fieldList = commonFields
           .slice(0, 3)
           .map((field) => `<code>${escapeHtml(field.field)}</code>`)
@@ -560,16 +569,31 @@
                 '<div class="embed-options">',
                 '<label>One-to-many embedding</label>',
                 '<p class="hint" style="margin: 0 0 0.25rem">Select CSVs whose rows should be embedded as child arrays on matching parent documents.</p>',
+                '<label for="parentFilePicker">Parent CSV</label>',
+                '<select id="parentFilePicker" name="parentFile">',
+                (data.files || [])
+                  .map(
+                    (file) =>
+                      `<option value="${escapeHtml(file.fileName)}"${
+                        file.fileName === parentFile ? " selected" : ""
+                      }>${escapeHtml(file.fileName)}</option>`,
+                  )
+                  .join(""),
+                "</select>",
                 (data.files || [])
                   .map((file, index) => {
                     const id = `embeddedFile_${index}`;
-                    const checked = embeddedSelections.has(file.fileName) ? " checked" : "";
+                    const isParent = file.fileName === parentFile;
+                    const checked = !isParent && embeddedSelections.has(file.fileName) ? " checked" : "";
+                    const disabled = isParent ? " disabled" : "";
                     return [
                       '<div class="embed-option">',
-                      `<input id="${id}" name="embeddedFiles" type="checkbox" value="${escapeHtml(file.fileName)}"${checked} />`,
-                      `<label for="${id}">Embed <code>${escapeHtml(file.fileName)}</code><span>Default array field: ${escapeHtml(
+                      `<input id="${id}" name="embeddedFiles" type="checkbox" value="${escapeHtml(file.fileName)}"${checked}${disabled} />`,
+                      `<label for="${id}">Embed <code>${escapeHtml(file.fileName)}</code><span>${
+                        isParent ? "Parent CSV cannot be embedded." : "Default array field: " + escapeHtml(
                         suggestedEmbeddedFieldName(file.fileName),
-                      )}</span></label>`,
+                      )
+                      }</span></label>`,
                       "</div>",
                     ].join("");
                   })
@@ -662,6 +686,10 @@
 
       analysis.addEventListener("change", (e) => {
         if (!(e.target instanceof HTMLSelectElement)) return;
+        if (e.target.id === "parentFilePicker" && lastAnalysis) {
+          showAnalysis(lastAnalysis);
+          return;
+        }
         if (e.target.id !== "joinFieldPicker") return;
         joinField.value = e.target.value;
       });

@@ -16,11 +16,15 @@ export type ParsedHeader = {
 function splitDotPath(path: string): PathSegment[] {
   const h = path.trim();
   if (h === '') return [];
-  return h.split('.').map((part) => {
-    const n = Number(part);
-    if (part !== '' && Number.isInteger(n) && String(n) === part) return n;
-    return part;
-  });
+  // Drop empty segments so headers like "etc." or "a..b" do not create invalid Mongo paths.
+  return h
+    .split('.')
+    .filter((part) => part !== '')
+    .map((part) => {
+      const n = Number(part);
+      if (Number.isInteger(n) && String(n) === part) return n;
+      return part;
+    });
 }
 
 /**

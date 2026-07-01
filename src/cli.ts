@@ -19,10 +19,12 @@ function parseArgs(argv: string[]): {
   collectionName: string | undefined;
   joinField: string | undefined;
   embeddedCsvs: EmbeddedCsvSpec[];
+  parentFileName: string | undefined;
   analyzeOnly: boolean;
   drop: boolean;
 } {
   let joinField: string | undefined;
+  let parentFileName: string | undefined;
   let analyzeOnly = false;
   let drop = false;
   const embeddedCsvs: EmbeddedCsvSpec[] = [];
@@ -58,6 +60,13 @@ function parseArgs(argv: string[]): {
       );
       continue;
     }
+    if (a === '--parent' || a === '-p') {
+      parentFileName = argv[++i];
+      if (!parentFileName) {
+        throw new Error('Missing value after --parent');
+      }
+      continue;
+    }
     if (a.startsWith('-')) {
       throw new Error(`Unknown option: ${a}`);
     }
@@ -66,7 +75,7 @@ function parseArgs(argv: string[]): {
 
   if (positional.length < 1) {
     throw new Error(
-      'Usage: npm run import-cli -- <file.csv> [more.csv ...] [collectionName] [--join <field>] [--embed <file.csv[:arrayField]>] [--drop] [--analyze]',
+      'Usage: npm run import-cli -- <file.csv> [more.csv ...] [collectionName] [--join <field>] [--parent <file.csv>] [--embed <file.csv[:arrayField]>] [--drop] [--analyze]',
     );
   }
 
@@ -84,6 +93,7 @@ function parseArgs(argv: string[]): {
     collectionName,
     joinField: joinField?.trim() || undefined,
     embeddedCsvs,
+    parentFileName: parentFileName?.trim() || undefined,
     analyzeOnly,
     drop,
   };
@@ -104,6 +114,7 @@ async function main(): Promise<void> {
   let collectionName: string | undefined;
   let joinField: string | undefined;
   let embeddedCsvs: EmbeddedCsvSpec[];
+  let parentFileName: string | undefined;
   let analyzeOnly: boolean;
   let drop: boolean;
 
@@ -113,6 +124,7 @@ async function main(): Promise<void> {
     collectionName = parsed.collectionName;
     joinField = parsed.joinField;
     embeddedCsvs = parsed.embeddedCsvs;
+    parentFileName = parsed.parentFileName;
     analyzeOnly = parsed.analyzeOnly;
     drop = parsed.drop;
   } catch (e) {
@@ -147,6 +159,7 @@ async function main(): Promise<void> {
 
   console.error(`Using collection "${collectionName}"`);
   if (joinField) console.error(`Using join field "${joinField}"`);
+  if (parentFileName) console.error(`Using parent CSV "${path.basename(parentFileName)}"`);
   for (const embedded of embeddedCsvs) {
     console.error(
       `Embedding rows from "${path.basename(embedded.fileName)}"${
@@ -166,6 +179,7 @@ async function main(): Promise<void> {
       })),
       joinField,
       embeddedCsvs,
+      { parentFileName },
     );
     documents = merged.documents;
     mergeStats = merged.stats;

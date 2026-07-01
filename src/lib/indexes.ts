@@ -5,6 +5,12 @@
 const ID_LIKE =
   /(^|\.)(id|_id|uuid|sku|email|code|slug|username|account|customerId|orderId|tenantId)$/i;
 
+/** MongoDB index paths cannot contain empty dotted segments (e.g. "etc." or "a..b"). */
+export function isValidMongoIndexPath(path: string): boolean {
+  if (!path) return false;
+  return path.split('.').every((segment) => segment.length > 0);
+}
+
 function isLikelyIdentifierPath(path: string): boolean {
   return ID_LIKE.test(path);
 }
@@ -55,7 +61,7 @@ export function recommendIndexes(
   });
 
   for (const path of sorted) {
-    if (seen.has(path)) continue;
+    if (seen.has(path) || !isValidMongoIndexPath(path)) continue;
     const { nonNull, unique } = countUniqueAtPath(docs, path);
     if (nonNull < Math.min(1, docs.length)) continue;
 

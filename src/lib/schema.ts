@@ -1,3 +1,5 @@
+import { isValidMongoIndexPath } from './indexes.js';
+
 /**
  * Lightweight schema tree used to suggest indexes and show inferred structure.
  */
@@ -96,5 +98,7 @@ export function schemaIndexCandidates(node: SchemaNode | null): string[] {
   if (!node) return [];
   const paths: string[] = [];
   flattenPaths(node, '', paths);
-  return paths.filter((p) => p !== '(root)' && !p.startsWith('_id'));
+  return paths.filter(
+    (p) => p !== '(root)' && !p.startsWith('_id') && isValidMongoIndexPath(p),
+  );
 }
